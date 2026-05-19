@@ -34,7 +34,9 @@ def RLSM(data, eps=0.01):
     dH1 = C1
     dH2 = C3 / C2
     dH3 = C5 / C4
-    dK2 = 1/np.sqrt(C2) - 1
-    dK3 = 1/np.sqrt(C4) - 1
-    
-    return np.array([dH1, dH2, dH3]), np.array([0, dK2, dK3]), trace_history
+   
+    inside = C1**2 + C3**2 / abs(C2) + C5**2 / abs(C4) - C6
+    dK1 = 1 / np.sqrt(inside) - 1
+    dK2 = -1 + ((1 + dK1) / np.sqrt(abs(C2)))
+    dK3 = -1 + ((1 + dK1) / np.sqrt(abs(C4)))
+    return np.array([dH1, dH2, dH3]), np.array([dK1, dK2, dK3]), trace_history
