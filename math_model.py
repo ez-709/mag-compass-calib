@@ -1,13 +1,5 @@
 import numpy as np
 
-def apply_error_model(H_ideal, delta_H, delta_K):
-    H = H_ideal * (1 + delta_K) + delta_H
-    return H
-
-def compensate(H, delta_H, delta_K):
-    H_comp = (H - delta_H) / (1 + delta_K)
-    return H_comp
-
 def RLSM(data, eps=0.1):
     X = np.array([0, 1, 0, 1, 0, -1], dtype=float)
     P = np.diag([1, 9, 9, 9, 9, 20]).astype(float)
@@ -38,34 +30,70 @@ def fitness(params, data):
     r_ref = np.mean(np.linalg.norm(data, axis=1))
     return np.mean((np.linalg.norm(H_comp, axis=1) - r_ref) ** 2)
 
+
+def apply_error_model(H_ideal, delta_H, delta_K):
+    H = H_ideal * (1 + delta_K) + delta_H
+    return H
+
+def compensate(H, delta_H, delta_K):
+    H_comp = (H - delta_H) / (1 + delta_K)
+    return H_comp
+
+def tournament(pop, fits, rng, pop_size):
+    idx = [rng.integers(0, pop_size) for _ in range(3)]
+    best = idx[0]
+    for i in idx[1:]:
+        if fits[i] < fits[best]:
+            best = i
+    return pop[best]
+
+def crossover(A, B, rng):
+    child = np.zeros(6)
+    for g in range(6):
+        if rng.random() < 0.5:
+            child[g] = A[g]
+        else:
+            child[g] = B[g]
+    return child
+
+def mutate(child, sigma, rng_range, lo, hi, p_mut, rng):
+    for g in range(6):
+        if rng.random() < p_mut:
+            child[g] += sigma * rng_range[g] * rng.standard_normal()
+            child[g] = np.clip(child[g], lo[g], hi[g])
+    return child
+
 def GA(data, pop_size=60, n_gen=300, p_mut=0.15, sigma0=0.05, seed=42):
     rng = np.random.default_rng(seed)
     H_max = np.max(np.abs(data))
     lo = np.array([-H_max, -H_max, -H_max, -0.5, -0.5, -0.5])
     hi = np.array([ H_max,  H_max,  H_max,  0.5,  0.5,  0.5])
     rng_range = hi - lo
-    pop = rng.uniform(lo, hi, size=(pop_size, 6))
+
+    pop = []
+    for _ in range(pop_size):
+        ind = np.array([rng.uniform(lo[g], hi[g]) for g in range(6)])
+        pop.append(ind)
+
     fitness_history = []
+
     for gen in range(n_gen):
         sigma = sigma0 * (0.01 ** (gen / n_gen))
-        fits = np.array([fitness(ind, data) for ind in pop])
-        fitness_history.append(np.min(fits))
-        order = np.argsort(fits)
-        new_pop = pop[order[:2]].copy()
+        fits = [fitness(ind, data) for ind in pop]
+        fitness_history.append(min(fits))
+
+        order = sorted(range(pop_size), key=lambda i: fits[i])
+        new_pop = [pop[order[0]].copy(), pop[order[1]].copy()]
+
         while len(new_pop) < pop_size:
-            def tournament():
-                idx = rng.choice(pop_size, size=3, replace=False)
-                return pop[idx[np.argmin(fits[idx])]]
-            A = tournament()
-            B = tournament()
-            mask = rng.random(6) < 0.5
-            child = np.where(mask, A, B)
-            child = np.clip(child, lo, hi)
-            mask = rng.random(6) < p_mut
-            child[mask] += sigma * rng_range[mask] * rng.standard_normal(mask.sum())
-            child = np.clip(child, lo, hi)
-            new_pop = np.vstack([new_pop, child])
-        pop = new_pop[:pop_size]
-    fits = np.array([fitness(ind, data) for ind in pop])
-    best = pop[np.argmin(fits)]
+            A = tournament(pop, fits, rng, pop_size)
+            B = tournament(pop, fits, rng, pop_size)
+            child = crossover(A, B, rng)
+            child = mutate(child, sigma, rng_range, lo, hi, p_mut, rng)
+            new_pop.append(child)
+
+        pop = new_pop
+
+    fits = [fitness(ind, data) for ind in pop]
+    best = pop[fits.index(min(fits))]
     return best[:3], best[3:], fitness_history
