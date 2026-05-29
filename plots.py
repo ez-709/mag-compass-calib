@@ -80,13 +80,11 @@ def plot_sphere_comparison(H_raw, H_comp):
     plt.show()
 
 
-def plot_convergence(trace_history, eps):
+def plot_convergence(trace_history, label='Sum of diag(P)', title='RLSM Convergence'):
     plt.figure(figsize=(8, 4))
     plt.plot(trace_history)
-    plt.axhline(y=eps, color='red', linestyle='--', label=f'eps = {eps}')
     plt.xlabel('Iteration')
-    plt.ylabel('Sum of diag(P)')
-    plt.title('RMNC Convergence')
-    plt.legend()
+    plt.ylabel(label)
+    plt.title(title)
     plt.grid(True)
     plt.show()
