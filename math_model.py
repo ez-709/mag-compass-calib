@@ -2,26 +2,42 @@ import numpy as np
 
 def RLSM(data, eps=0.1):
     X = np.array([0, 1, 0, 1, 0, -1], dtype=float)
-    P = np.diag([1, 9, 9, 9, 9, 20]).astype(float)
+    P = np.diag([0.5, 1.5, 1.5, 1.5, 1.5, 20.0])
     trace_history = []
+    h_history = []
+    K_history = []
+
     for row in data:
         H1, H2, H3 = row[0], row[1], row[2]
         Z = -H1**2
         h = np.array([-2*H1, H2**2, -2*H2, H3**2, -2*H3, 1])
+        denom = 1 + h @ P @ h
+        K = P @ h / denom
         e = Z - h @ X
-        X = X + (P @ h / (1 + h @ P @ h)) * e
-        P = P - (P @ h.reshape(-1, 1) @ h.reshape(1, -1) @ P) / (1 + h @ P @ h)
+        X = X + K * e
+        P = P - np.outer(K, h @ P)
+
         trace_history.append(np.sum(np.diag(P)))
+        h_history.append(h.copy())
+        K_history.append(K.copy())
+
         if np.sum(np.diag(P)) < eps:
             break
+
     C1, C2, C3, C4, C5, C6 = X
     dH1 = C1
     dH2 = C3 / C2
     dH3 = C5 / C4
-    dK1 = 0.0
-    dK2 = 1 / np.sqrt(abs(C2)) - 1
-    dK3 = 1 / np.sqrt(abs(C4)) - 1
-    return np.array([dH1, dH2, dH3]), np.array([dK1, dK2, dK3]), trace_history
+    val = C1**2 + C3**2 / abs(C2) + C5**2 / abs(C4) - C6
+    dK1 = np.sqrt(max(val, 0.0)) - 1
+    dK2 = (1 + dK1) / np.sqrt(abs(C2)) - 1
+    dK3 = (1 + dK1) / np.sqrt(abs(C4)) - 1
+
+    return (np.array([dH1, dH2, dH3]),
+            np.array([dK1, dK2, dK3]),
+            trace_history,
+            np.array(h_history),
+            np.array(K_history))
 
 def fitness(params, data):
     dH = params[:3]
@@ -66,8 +82,8 @@ def mutate(child, sigma, rng_range, lo, hi, p_mut, rng):
 def GA(data, pop_size=60, n_gen=300, p_mut=0.15, sigma0=0.05, seed=42):
     rng = np.random.default_rng(seed)
     H_max = np.max(np.abs(data))
-    lo = np.array([-H_max, -H_max, -H_max, -0.5, -0.5, -0.5])
-    hi = np.array([ H_max,  H_max,  H_max,  0.5,  0.5,  0.5])
+    lo = np.array([-H_max, -H_max, -H_max, -1, -1, -1])
+    hi = np.array([ H_max,  H_max,  H_max,  1,  1,  1])
     rng_range = hi - lo
 
     pop = []
