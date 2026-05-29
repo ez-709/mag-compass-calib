@@ -1,5 +1,13 @@
 import numpy as np
 
+def apply_error_model(H_ideal, delta_H, delta_K):
+    H = H_ideal * (1 + delta_K) + delta_H
+    return H
+
+def compensate(H, delta_H, delta_K):
+    H_comp = (H - delta_H) / (1 + delta_K)
+    return H_comp
+
 def RLSM(data, eps=0.1):
     X = np.array([0, 1, 0, 1, 0, -1], dtype=float)
     P = np.diag([1, 9, 9, 9, 9, 20]).astype(float)
@@ -30,16 +38,7 @@ def fitness(params, data):
     r_ref = np.mean(np.linalg.norm(data, axis=1))
     return np.mean((np.linalg.norm(H_comp, axis=1) - r_ref) ** 2)
 
-
-def apply_error_model(H_ideal, delta_H, delta_K):
-    H = H_ideal * (1 + delta_K) + delta_H
-    return H
-
-def compensate(H, delta_H, delta_K):
-    H_comp = (H - delta_H) / (1 + delta_K)
-    return H_comp
-
-def GA(data, pop_size=60, n_gen=300, alpha=0.5, p_mut=0.15, sigma0=0.05, seed=42):
+def GA(data, pop_size=60, n_gen=300, p_mut=0.15, sigma0=0.05, seed=42):
     rng = np.random.default_rng(seed)
     H_max = np.max(np.abs(data))
     lo = np.array([-H_max, -H_max, -H_max, -0.5, -0.5, -0.5])
@@ -59,8 +58,8 @@ def GA(data, pop_size=60, n_gen=300, alpha=0.5, p_mut=0.15, sigma0=0.05, seed=42
                 return pop[idx[np.argmin(fits[idx])]]
             A = tournament()
             B = tournament()
-            u = rng.uniform(-alpha, 1 + alpha, size=6)
-            child = A + u * (B - A)
+            mask = rng.random(6) < 0.5
+            child = np.where(mask, A, B)
             child = np.clip(child, lo, hi)
             mask = rng.random(6) < p_mut
             child[mask] += sigma * rng_range[mask] * rng.standard_normal(mask.sum())
