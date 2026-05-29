@@ -4,8 +4,8 @@ def RLSM(data, eps=0.1):
     X = np.array([0, 1, 0, 1, 0, -1], dtype=float)
     P = np.diag([0.5, 1.5, 1.5, 1.5, 1.5, 20.0])
     trace_history = []
-    h_history = []
-    K_history = []
+    dH_history = []
+    dK_history = []
 
     for row in data:
         H1, H2, H3 = row[0], row[1], row[2]
@@ -18,34 +18,33 @@ def RLSM(data, eps=0.1):
         P = P - np.outer(K, h @ P)
 
         trace_history.append(np.sum(np.diag(P)))
-        h_history.append(h.copy())
-        K_history.append(K.copy())
+
+        C1, C2, C3, C4, C5, C6 = X
+        dH1 = C1
+        dH2 = C3 / C2
+        dH3 = C5 / C4
+        val = C1**2 + C3**2 / abs(C2) + C5**2 / abs(C4) - C6
+        dK1 = np.sqrt(max(val, 0.0)) - 1
+        dK2 = (1 + dK1) / np.sqrt(abs(C2)) - 1
+        dK3 = (1 + dK1) / np.sqrt(abs(C4)) - 1
+
+        dH_history.append([dH1, dH2, dH3])
+        dK_history.append([dK1, dK2, dK3])
 
         if np.sum(np.diag(P)) < eps:
             break
 
-    C1, C2, C3, C4, C5, C6 = X
-    dH1 = C1
-    dH2 = C3 / C2
-    dH3 = C5 / C4
-    val = C1**2 + C3**2 / abs(C2) + C5**2 / abs(C4) - C6
-    dK1 = np.sqrt(max(val, 0.0)) - 1
-    dK2 = (1 + dK1) / np.sqrt(abs(C2)) - 1
-    dK3 = (1 + dK1) / np.sqrt(abs(C4)) - 1
-
     return (np.array([dH1, dH2, dH3]),
             np.array([dK1, dK2, dK3]),
             trace_history,
-            np.array(h_history),
-            np.array(K_history))
+            np.array(dH_history),
+            np.array(dK_history))
 
 def fitness(params, data):
     dH = params[:3]
     dK = params[3:]
     H_comp = (data - dH) / (1 + dK)
-    r_ref = np.mean(np.linalg.norm(data, axis=1))
-    return np.mean((np.linalg.norm(H_comp, axis=1) - r_ref) ** 2)
-
+    return np.mean((np.linalg.norm(H_comp, axis=1) - 1.0) ** 2)
 
 def apply_error_model(H_ideal, delta_H, delta_K):
     H = H_ideal * (1 + delta_K) + delta_H
@@ -79,7 +78,7 @@ def mutate(child, sigma, rng_range, lo, hi, p_mut, rng):
             child[g] = np.clip(child[g], lo[g], hi[g])
     return child
 
-def GA(data, pop_size=60, n_gen=300, p_mut=0.15, sigma0=0.05, seed=42):
+def GA(data, pop_size=32, n_gen=50, p_mut=0.15, sigma0=0.05, seed=42):
     rng = np.random.default_rng(seed)
     H_max = np.max(np.abs(data))
     lo = np.array([-H_max, -H_max, -H_max, -1, -1, -1])
@@ -94,7 +93,7 @@ def GA(data, pop_size=60, n_gen=300, p_mut=0.15, sigma0=0.05, seed=42):
     fitness_history = []
 
     for gen in range(n_gen):
-        sigma = sigma0 * (0.01 ** (gen / n_gen))
+        sigma = sigma0 * (1.0 - gen / n_gen) + 1e-4
         fits = [fitness(ind, data) for ind in pop]
         fitness_history.append(min(fits))
 

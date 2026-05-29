@@ -2,20 +2,18 @@ import os
 import numpy as np
 from parser import parse_H
 from math_model import RLSM, GA, compensate
-from plots import plot_sphere_comparison, plot_convergence
+from plots import plot_sphere_comparison, plot_convergence, plot_hK_history
 
 path = os.getcwd()
 data_path = os.path.join(path, 'sensors_data', 'magnetic_data.txt')
 
 data = parse_H(data_path)
-r_norm = np.mean(np.linalg.norm(data, axis=1))
-print(r_norm)
 data_scaled = data / 1000
 
 eps = 0.01
 
 print("=== RLSM ===")
-delta_H, delta_K, trace_history, h_history, K_history = RLSM(data_scaled, eps)
+delta_H, delta_K, trace_history, dH_history, dK_history = RLSM(data_scaled, eps)
 print(f"dH = {delta_H}")
 print(f"dK = {delta_K}")
 
@@ -26,6 +24,7 @@ print(f"before: r = {np.mean(r_before):.4f}, std = {np.std(r_before):.4f}")
 print(f"after:  r = {np.mean(r_after):.4f},  std = {np.std(r_after):.4f}")
 
 plot_convergence(trace_history, eps)
+plot_hK_history(dH_history, dK_history)
 plot_sphere_comparison(data_scaled, data_comp)
 
 print("\n=== GA ===")

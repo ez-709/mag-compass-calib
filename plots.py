@@ -79,6 +79,25 @@ def plot_sphere_comparison(H_raw, H_comp):
     plt.tight_layout()
     plt.show()
 
+def plot_hK_history(dH_history, dK_history):
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    for i, label in enumerate(['dH1', 'dH2', 'dH3']):
+        axes[0].plot(dH_history[:, i], label=label)
+    axes[0].set_title('dH history')
+    axes[0].set_xlabel('Iteration')
+    axes[0].grid(True)
+    axes[0].legend()
+
+    for i, label in enumerate(['dK1', 'dK2', 'dK3']):
+        axes[1].plot(dK_history[:, i], label=label)
+    axes[1].set_title('dK history')
+    axes[1].set_xlabel('Iteration')
+    axes[1].grid(True)
+    axes[1].legend()
+
+    plt.tight_layout()
+    plt.show()
 
 def plot_convergence(trace_history, label='Sum of diag(P)', title='RLSM Convergence'):
     plt.figure(figsize=(8, 4))
